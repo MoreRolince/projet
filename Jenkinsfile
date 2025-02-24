@@ -40,14 +40,34 @@ pipeline {
                     def testLines = readFile(TEST_FILE_PATH).split('\n')
 
                     for (line in testLines) {
-                        def vars = line.split(' ')
+                        def vars = line.trim().split(' ')
+
+                        // Vérifier que la ligne contient bien 3 éléments
+                        if (vars.size() < 3) {
+                            echo "⚠️ Ligne ignorée car elle ne contient pas assez de valeurs : '${line}'"
+                            continue
+                        }
+
                         def arg1 = vars[0]
                         def arg2 = vars[1]
-                        def expectedSum = vars[2].toFloat()
+                        def expectedSum
+
+                        try {
+                            expectedSum = vars[2].toFloat()
+                        } catch (Exception e) {
+                            echo "⚠️ Ligne ignorée car la somme attendue n'est pas un nombre valide : '${line}'"
+                            continue
+                        }
 
                         // Exécuter le script dans le conteneur
                         def output = bat(script: "docker exec ${CONTAINER_ID} python sum.py ${arg1} ${arg2}", returnStdout: true)
-                        def result = output.split('\n')[-1].trim().toFloat()
+                        def result
+
+                        try {
+                            result = output.split('\n')[-1].trim().toFloat()
+                        } catch (Exception e) {
+                            error "❌ Erreur : Impossible de convertir le résultat en nombre pour la ligne '${line}'"
+                        }
 
                         if (result == expectedSum) {
                             echo "✅ Test réussi: ${arg1} + ${arg2} = ${result}"
